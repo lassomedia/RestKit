@@ -470,7 +470,12 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
     Class attributeClass = [entityMapping classForProperty:propertyMappingForModificationKey.destinationKeyPath];
     id transformedValue = RKTransformedValueWithClass(rawValue, attributeClass, transformer);
     if (! transformedValue) return NO;
-    return RKObjectIsEqualToObject(transformedValue, currentValue);
+    
+#warning CP - Optimization since we only use NSDates for modificationKey
+    if ([transformedValue isKindOfClass:[NSDate class]] && [currentValue isKindOfClass:[NSDate class]])
+        return ([(NSDate*)transformedValue compare:(NSDate*)currentValue] != NSOrderedDescending);
+    else
+        return RKObjectIsEqualToObject(transformedValue, currentValue);
 }
 
 @end
