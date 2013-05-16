@@ -121,14 +121,15 @@ NSSet *RKSetByRemovingSubkeypathsFromSet(NSSet *setOfKeyPaths)
 static NSManagedObject *RKRefetchManagedObjectInContext(NSManagedObject *managedObject, NSManagedObjectContext *managedObjectContext)
 {
     NSManagedObjectID *managedObjectID = [managedObject objectID];
-    if (! [managedObject managedObjectContext]) return nil; // Object has been deleted
     if ([managedObjectID isTemporaryID]) {
         RKLogWarning(@"Unable to refetch managed object %@: the object has a temporary managed object ID.", managedObject);
         return managedObject;
     }
     NSError *error = nil;
     NSManagedObject *refetchedObject = [managedObjectContext existingObjectWithID:managedObjectID error:&error];
-    NSCAssert(refetchedObject, @"Failed to find existing object with ID %@ in context %@: %@", managedObjectID, managedObjectContext, error);
+    if (! refetchedObject) {
+        RKLogWarning(@"Failed to refetch managed object with ID %@: %@", managedObjectID, error);
+    }
     return refetchedObject;
 }
 
@@ -424,6 +425,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
 @property (nonatomic, strong) NSCachedURLResponse *cachedResponse;
 @property (nonatomic, readonly) BOOL canSkipMapping;
 @property (nonatomic, assign) BOOL hasMemoizedCanSkipMapping;
+@property (nonatomic, copy) void (^willSaveMappingContextBlock)(NSManagedObjectContext *mappingContext);
 @end
 
 @implementation RKManagedObjectRequestOperation
@@ -477,6 +479,28 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
     _managedObjectContext = managedObjectContext;
 
     if (managedObjectContext) {
+        [managedObjectContext performBlockAndWait:^{
+            if ([managedObjectContext hasChanges]) {
+                if ([managedObjectContext.insertedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didCreateObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.insertedObjects) {
+                        [self.managedObjectCache didCreateObject:managedObject];
+                    }
+                }
+                
+                if ([managedObjectContext.updatedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didFetchObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.updatedObjects) {
+                        [self.managedObjectCache didFetchObject:managedObject];
+                    }
+                }
+                
+                if ([managedObjectContext.deletedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didDeleteObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.deletedObjects) {
+                        [self.managedObjectCache didDeleteObject:managedObject];
+                    }
+                }
+            }
+        }];
+        
         // Create a private context
         NSManagedObjectContext *privateContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
         [privateContext setParentContext:managedObjectContext];
@@ -592,6 +616,11 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         success = [weakSelf obtainPermanentObjectIDsForInsertedObjects:&error];
         if (! success || [weakSelf isCancelled]) {
             return completionBlock(nil, error);
+        }
+        if (weakSelf.willSaveMappingContextBlock) {
+            [weakSelf.privateContext performBlockAndWait:^{
+                weakSelf.willSaveMappingContextBlock(weakSelf.privateContext);
+            }];
         }
         success = [weakSelf saveContext:&error];
         if (! success || [weakSelf isCancelled]) {
