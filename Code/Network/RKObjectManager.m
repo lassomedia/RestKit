@@ -334,10 +334,13 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
         self.registeredObjectRequestOperationClasses = [NSMutableArray new];
         self.requestSerializationMIMEType = RKMIMETypeFromAFHTTPClientParameterEncoding(client.parameterEncoding);        
 
-        // Set shared manager if nil
-        if (nil == sharedManager) {
-            [RKObjectManager setSharedManager:self];
-        }
+        /* Commenting-out to avoid memory leak of the first LOObjectManager created. (New sessions create new LOObjectManagers,
+           but by storing the first one in a global, it never gets deallocated.) -DK */
+        
+//        // Set shared manager if nil
+//        if (nil == sharedManager) {
+//            [RKObjectManager setSharedManager:self];
+//        }
     }
 
     return self;
