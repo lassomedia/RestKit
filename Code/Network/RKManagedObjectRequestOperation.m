@@ -18,6 +18,8 @@
 //  limitations under the License.
 //
 
+#ifdef _COREDATADEFINES_H
+
 #import "RKManagedObjectRequestOperation.h"
 #import "RKLog.h"
 #import "RKHTTPUtilities.h"
@@ -540,8 +542,8 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         if (! RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(matchingResponseDescriptors)) return NO;
 
         // Check for a change in the Etag
-        NSString *cachedEtag = [[(NSHTTPURLResponse *)[self.cachedResponse response] allHeaderFields] objectForKey:@"Etag"];
-        NSString *responseEtag = [[response allHeaderFields] objectForKey:@"Etag"];
+        NSString *cachedEtag = [[(NSHTTPURLResponse *)[self.cachedResponse response] allHeaderFields] objectForKey:@"ETag"];
+        NSString *responseEtag = [[response allHeaderFields] objectForKey:@"ETag"];
         if (! [cachedEtag isEqualToString:responseEtag]) return NO;
         
         // Response data has changed
@@ -898,3 +900,5 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
 }
 
 @end
+
+#endif
