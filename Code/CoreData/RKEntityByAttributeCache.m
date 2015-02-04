@@ -399,7 +399,8 @@ static NSArray *RKCacheKeysForEntityFromAttributeValues(NSEntityDescription *ent
 
 - (void)didReceiveMemoryWarning:(NSNotification *)notification
 {
-    [self flush:nil];
+#warning CWP: Seems to be the root of the duplicate object problem
+    //    [self flush:nil];
 }
 
 @end
